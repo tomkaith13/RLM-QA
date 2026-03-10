@@ -9,13 +9,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATA_PATH = Path(__file__).parent / "data" / "transcripts.json"
+DATA_DIR = Path(__file__).parent / "data"
 
 
 def load_transcripts() -> str:
-    """Load transcripts.json and format as a single text block for RLM."""
-    with open(DATA_PATH) as f:
-        calls = json.load(f)
+    """Load all JSON transcript files from the data directory and format as a single text block for RLM."""
+    json_files = sorted(DATA_DIR.glob("*.json"))
+    if not json_files:
+        print(f"Error: No JSON files found in {DATA_DIR}")
+        sys.exit(1)
+
+    calls = []
+    for json_file in json_files:
+        with open(json_file) as f:
+            calls.extend(json.load(f))
 
     lines = []
     for call in calls:
