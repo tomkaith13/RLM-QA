@@ -49,7 +49,7 @@ def main():
         print("Error: GOOGLE_API_KEY not set in .env file")
         sys.exit(1)
 
-    lm = dspy.LM("gemini/gemini-2.5-flash", api_key=api_key)
+    lm = dspy.LM("gemini/gemini-3-flash-preview", api_key=api_key)
     dspy.configure(lm=lm)
 
     transcripts = load_transcripts()
