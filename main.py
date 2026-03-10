@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import dspy
@@ -53,7 +54,9 @@ def main():
         verbose=False,
     )
 
+    start = time.time()
     result = rlm(transcripts=transcripts, question=question)
+    duration = time.time() - start
     print("\n" + "=" * 60)
     print("ANSWER:")
     print("=" * 60)
@@ -61,7 +64,7 @@ def main():
 
     total_cost = sum(entry.get("cost") or 0 for entry in lm.history)
     total_tokens = sum(entry.get("usage", {}).get("total_tokens", 0) for entry in lm.history)
-    print(f"\n--- Cost: ${total_cost:.6f} | Tokens: {total_tokens:,} | LLM calls: {len(lm.history)} ---")
+    print(f"\n--- Cost: ${total_cost:.6f} | Tokens: {total_tokens:,} | LLM calls: {len(lm.history)} | Duration: {duration:.1f}s ---")
 
 
 if __name__ == "__main__":
