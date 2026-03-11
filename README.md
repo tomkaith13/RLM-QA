@@ -98,3 +98,17 @@ ANSWER:
 
 --- Cost: $0.063424 | Tokens: 243,429 | LLM calls: 189 (main: 6, sub: 183) | Duration: 100.3s ---
 ```
+
+## Screenshots
+
+### Analyzing transcripts with Claude Code
+
+Claude Code running a demographic query across 760 calls — filtering Hispanic respondents over 50 and their primary search engine.
+
+![Claude Code Example](screenshots/claude-code-example.png)
+
+### Direct RLM run with GPT-5 Mini
+
+Running `main.py` directly from the terminal. The RLM processes all transcripts autonomously and returns a structured summary.
+
+![Local Run Using GPT-5 Mini](screenshots/local-run-using-gpt5-mini.png)
