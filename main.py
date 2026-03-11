@@ -6,6 +6,7 @@ from pathlib import Path
 
 import dspy
 from dotenv import load_dotenv
+from dspy.primitives import PythonInterpreter
 
 load_dotenv()
 
@@ -52,13 +53,17 @@ def main():
     lm = dspy.LM("gemini/gemini-3-flash-preview", api_key=api_key)
     dspy.configure(lm=lm)
 
+    interpreter = PythonInterpreter()
+    interpreter.start()
+
     transcripts = load_transcripts()
 
     rlm = dspy.RLM(
         "transcripts, question -> answer",
         max_iterations=100,
         max_llm_calls=200,
-        verbose=False,
+        verbose=True,
+        interpreter=interpreter,
     )
 
     start = time.time()
