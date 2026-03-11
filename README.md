@@ -10,13 +10,13 @@ We have 600+ interview transcripts (~1M+ tokens) from AI-moderated research call
 
 **RLM (Reasoning Language Model)** solves this by combining an LLM with a code interpreter in an iterative loop:
 
-1. The **main LM** (Gemini 3 Flash) reasons about the question and writes Python code to analyze the data
+1. The **LM** (GPT-5 Mini) reasons about the question and writes Python code to analyze the data
 2. The code executes in a **sandboxed Deno/Pyodide interpreter** with access to the full transcript text
-3. Within that code, `llm_query()` and `llm_query_batched()` call a **sub LM** (GPT-4o-mini) for semantic analysis tasks like topic extraction or sentiment classification
-4. The main LM reviews the code output and decides whether to write more code or submit a final answer
+3. Within that code, `llm_query()` and `llm_query_batched()` are available for semantic analysis tasks like topic extraction or sentiment classification
+4. The LM reviews the code output and decides whether to write more code or submit a final answer
 5. This loop repeats (up to 100 iterations) until the answer is ready
 
-This approach lets the system process arbitrarily large datasets — the LLM never needs to "read" all the data at once. Instead, it writes code to iterate over it programmatically and delegates focused semantic queries to the cheaper sub LM.
+This approach lets the system process arbitrarily large datasets — the LLM never needs to "read" all the data at once. Instead, it writes code to iterate over it programmatically.
 
 ## Transcript Format
 
@@ -57,10 +57,9 @@ At load time, all JSON files in `data/` are merged and reformatted into a flat t
 
 | Role | Model | Purpose |
 |------|-------|---------|
-| Main LM | `gemini/gemini-3-flash-preview` | Reasoning, code generation, and orchestration |
-| Sub LM | `openai/gpt-4o-mini` | Semantic analysis via `llm_query()` / `llm_query_batched()` inside RLM code |
+| LM | `openai/gpt-5-mini` | Reasoning, code generation, orchestration, and semantic analysis |
 
-The main LM handles the "thinking" — deciding what code to write and when to submit. The sub LM handles bulk semantic work like classifying or summarizing individual transcripts, keeping costs low.
+The LM handles everything — deciding what code to write, executing semantic queries via `llm_query()`, and determining when to submit a final answer.
 
 ## Setup
 
@@ -75,7 +74,6 @@ The main LM handles the "thinking" — deciding what code to write and when to s
 Create a `.env` file in the project root:
 
 ```
-GOOGLE_API_KEY=your-google-api-key
 OPENAI_API_KEY=your-openai-api-key
 ```
 
@@ -96,7 +94,7 @@ ANSWER:
 4. Specific use cases for AI (brainstorming, writing, recipes, travel)
 5. User experience and interface preferences
 
---- Cost: $0.063424 | Tokens: 243,429 | LLM calls: 189 (main: 6, sub: 183) | Duration: 100.3s ---
+--- Cost: $0.013731 | Tokens: 11,363 | LLM calls: 2 | Duration: 103.8s ---
 ```
 
 ## Screenshots
