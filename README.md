@@ -1,6 +1,6 @@
 # RLM Transcript QA
 
-Ask natural language questions over hundreds of interview transcripts using [DSPy's Reasoning Language Model (RLM)](https://dspy.ai).
+Ask natural language questions over hundreds of interview transcripts using [DSPy's Recursive Language Model (RLM)](https://dspy.ai/api/modules/RLM/).
 
 ## The Problem
 
@@ -8,13 +8,13 @@ We have 600+ interview transcripts (~1M+ tokens) from AI-moderated research call
 
 ## How It Works
 
-**RLM (Reasoning Language Model)** solves this by combining an LLM with a code interpreter in an iterative loop:
+**RLM (Recursive Language Model)** solves this by combining an LLM with a code interpreter in an iterative loop:
 
 1. The **LM** (GPT-5 Mini) reasons about the question and writes Python code to analyze the data
 2. The code executes in a **sandboxed Deno/Pyodide interpreter** with access to the full transcript text
 3. Within that code, `llm_query()` and `llm_query_batched()` are available for semantic analysis tasks like topic extraction or sentiment classification
 4. The LM reviews the code output and decides whether to write more code or submit a final answer
-5. This loop repeats (up to 100 iterations) until the answer is ready
+5. This loop repeats (up to N iterations) until the answer is ready
 
 This approach lets the system process arbitrarily large datasets — the LLM never needs to "read" all the data at once. Instead, it writes code to iterate over it programmatically.
 
