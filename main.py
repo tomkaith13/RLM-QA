@@ -45,12 +45,12 @@ def main():
 
     question = sys.argv[1]
 
-    api_key = os.environ.get("GOOGLE_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("Error: GOOGLE_API_KEY not set in .env file")
+        print("Error: OPENAI_API_KEY not set in .env file")
         sys.exit(1)
 
-    lm = dspy.LM("gemini/gemini-3-flash-preview", api_key=api_key)
+    lm = dspy.LM("openai/gpt-5-mini", api_key=api_key)
     dspy.configure(lm=lm)
 
     interpreter = PythonInterpreter()
@@ -62,7 +62,7 @@ def main():
         "transcripts, question -> answer",
         max_iterations=100,
         max_llm_calls=200,
-        verbose=True,
+        verbose=False,
         interpreter=interpreter,
     )
 
