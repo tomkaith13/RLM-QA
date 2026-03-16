@@ -13,6 +13,17 @@ load_dotenv()
 DATA_DIR = Path(__file__).parent / "data"
 
 
+class AnalyzeTranscripts(dspy.Signature):
+    """You are an expert qualitative researcher analyzing interview transcripts.
+    IMPORTANT: You must process ALL transcripts in the dataset — never sample or subset.
+    Before calling SUBMIT, print the total number of transcripts processed and verify it matches the full dataset.
+    When counting or classifying, report exact counts with supporting evidence."""
+
+    transcripts: str = dspy.InputField(desc="Full text of all interview transcripts")
+    question: str = dspy.InputField(desc="Research question to answer about the transcripts")
+    answer: str = dspy.OutputField(desc="Detailed answer with exact counts, supporting evidence, and methodology notes")
+
+
 def load_transcripts() -> str:
     """Load all JSON transcript files from the data directory and format as a single text block for RLM."""
     json_files = sorted(DATA_DIR.glob("*.json"))
@@ -50,7 +61,7 @@ def main():
         print("Error: OPENAI_API_KEY not set in .env file")
         sys.exit(1)
 
-    lm = dspy.LM("openai/gpt-5-mini", api_key=api_key)
+    lm = dspy.LM("openai/gpt-5-mini", api_key=api_key,cache=False)
     dspy.configure(lm=lm)
 
     interpreter = PythonInterpreter()
@@ -59,10 +70,10 @@ def main():
     transcripts = load_transcripts()
 
     rlm = dspy.RLM(
-        "transcripts, question -> answer",
+        AnalyzeTranscripts,
         max_iterations=100,
         max_llm_calls=200,
-        verbose=False,
+        verbose=True,
         interpreter=interpreter,
     )
 
