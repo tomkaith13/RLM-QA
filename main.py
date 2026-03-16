@@ -6,6 +6,7 @@ from pathlib import Path
 
 import dspy
 from dotenv import load_dotenv
+from litellm.exceptions import ContextWindowExceededError
 from dspy.primitives import PythonInterpreter
 
 load_dotenv()
@@ -71,14 +72,36 @@ def main():
 
     rlm = dspy.RLM(
         AnalyzeTranscripts,
-        max_iterations=100,
+        max_iterations=15,
         max_llm_calls=200,
         verbose=True,
         interpreter=interpreter,
     )
 
+    max_retries = 3
     start = time.time()
-    result = rlm(transcripts=transcripts, question=question)
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = rlm(transcripts=transcripts, question=question)
+            break
+        except ContextWindowExceededError:
+            print(f"\n[Attempt {attempt}/{max_retries}] Context window exceeded — retrying with fresh RLM state...")
+            if attempt == max_retries:
+                duration = time.time() - start
+                print("\n" + "=" * 60)
+                print("ERROR: Context window exceeded on all retries.")
+                print(f"\n--- Duration: {duration:.1f}s ---")
+                sys.exit(1)
+            interpreter = PythonInterpreter()
+            interpreter.start()
+            rlm = dspy.RLM(
+                AnalyzeTranscripts,
+                max_iterations=15,
+                max_llm_calls=200,
+                verbose=True,
+                interpreter=interpreter,
+            )
+
     duration = time.time() - start
     print("\n" + "=" * 60)
     print("ANSWER:")
