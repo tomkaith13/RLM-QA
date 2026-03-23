@@ -25,8 +25,13 @@ class AnalyzeTranscripts(dspy.Signature):
     answer: str = dspy.OutputField(desc="Detailed answer with exact counts, supporting evidence, and methodology notes")
 
 
-def load_transcripts() -> str:
-    """Load all JSON transcript files from the data directory and format as a single text block for RLM."""
+def load_transcripts() -> tuple[str, list[dict]]:
+    """Load all JSON transcript files from the data directory.
+
+    Returns:
+        (formatted_text, raw_calls) — the formatted string for RLM and the raw
+        call dicts for structural analysis (e.g., planning/summarization).
+    """
     json_files = sorted(DATA_DIR.glob("*.json"))
     if not json_files:
         print(f"Error: No JSON files found in {DATA_DIR}")
@@ -47,7 +52,7 @@ def load_transcripts() -> str:
             role = msg["role"].upper()
             lines.append(f"  [{role}] {msg['message']}")
 
-    return "\n".join(lines)
+    return "\n".join(lines), calls
 
 
 def main():
@@ -68,7 +73,7 @@ def main():
     interpreter = PythonInterpreter()
     interpreter.start()
 
-    transcripts = load_transcripts()
+    transcripts, _ = load_transcripts()
 
     rlm = dspy.RLM(
         AnalyzeTranscripts,
