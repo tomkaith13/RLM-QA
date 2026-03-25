@@ -15,7 +15,7 @@ from main import load_transcripts
 
 load_dotenv()
 
-NUM_ENSEMBLE_RUNS = 3
+MAX_LENSES = 10
 MAX_ITERATIONS = 25
 MAX_LLM_CALLS = 200
 
@@ -43,12 +43,17 @@ class GenerateLenses(dspy.Signature):
     for parallel independent analyses of interview transcript data.
     Each lens must be meaningfully distinct: vary the focal construct, the
     unit of analysis, or the interpretive frame. Lenses must be specific
-    enough to steer an analyst's attention, not generic advice."""
+    enough to steer an analyst's attention, not generic advice.
+    Choose the right NUMBER of lenses for the question's complexity:
+    - Simple factual/counting questions need only 1-3 lenses.
+    - Moderately complex questions (filtering, cross-tabulation) need 3-5 lenses.
+    - Open-ended interpretive/qualitative questions benefit from 5-10 lenses.
+    Do not generate more lenses than the question warrants."""
 
     question: str = dspy.InputField(desc="The research question all runs will answer")
     data_summary: str = dspy.InputField(desc="Structural metadata about the transcript dataset")
-    num_lenses: int = dspy.InputField(desc="Number of distinct analytical lenses to generate")
-    lenses: list[str] = dspy.OutputField(desc="Exactly num_lenses analytical lenses, each 1-3 sentences")
+    max_lenses: int = dspy.InputField(desc="Maximum number of lenses allowed — generate fewer if the question is simple")
+    lenses: list[str] = dspy.OutputField(desc="The appropriate number of analytical lenses (up to max_lenses), each 1-3 sentences")
 
 
 class AggregateAnswers(dspy.Signature):
@@ -124,14 +129,14 @@ def compute_data_summary(calls: list[dict[str, Any]]) -> str:
 # ── Planning: lens generation ────────────────────────────────────────────────
 
 
-def generate_lenses(question: str, data_summary: str, n: int) -> list[str]:
-    """Use a single LLM call to generate n tailored analytical lenses."""
+def generate_lenses(question: str, data_summary: str, max_lenses: int) -> list[str]:
+    """Use a single LLM call to generate up to max_lenses tailored analytical lenses."""
     try:
         predictor = dspy.Predict(GenerateLenses)
         result = predictor(
             question=question,
             data_summary=data_summary,
-            num_lenses=n,
+            max_lenses=max_lenses,
         )
         lenses = result.lenses
         if not isinstance(lenses, list):
@@ -140,11 +145,11 @@ def generate_lenses(question: str, data_summary: str, n: int) -> list[str]:
         print(f"Warning: Lens generation failed ({e}), using generic lenses.")
         lenses = []
 
-    # Pad if LLM returned fewer than requested
-    while len(lenses) < n:
-        lenses.append("Analyze all transcripts comprehensively with no specific focal constraint.")
+    # Ensure at least one lens
+    if not lenses:
+        lenses = ["Analyze all transcripts comprehensively with no specific focal constraint."]
 
-    return lenses[:n]
+    return lenses[:max_lenses]
 
 
 def assemble_context(data_summary: str, lens: str) -> str:
@@ -188,24 +193,24 @@ async def run_single(run_id: int, transcripts: str, question: str, context: str)
         interpreter.shutdown()
 
 
-async def run_ensemble(transcripts: str, question: str, contexts: list[str]) -> None:
+async def run_ensemble(transcripts: str, question: str, contexts: list[str], num_runs: int) -> None:
     """Run N parallel RLM instances with per-run contexts and aggregate results."""
-    print(f"Launching {NUM_ENSEMBLE_RUNS} parallel RLM runs...")
+    print(f"Launching {num_runs} parallel RLM runs...")
     print("=" * 60)
 
     start = time.time()
 
     tasks = [
         run_single(i + 1, transcripts, question, contexts[i])
-        for i in range(NUM_ENSEMBLE_RUNS)
+        for i in range(num_runs)
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
     successful = [r for r in raw_results if isinstance(r, dict)]
-    failed_count = NUM_ENSEMBLE_RUNS - len(successful)
+    failed_count = num_runs - len(successful)
 
     print("\n" + "=" * 60)
-    print(f"Completed: {len(successful)}/{NUM_ENSEMBLE_RUNS} runs succeeded")
+    print(f"Completed: {len(successful)}/{num_runs} runs succeeded")
     if failed_count:
         print(f"Discarded: {failed_count} failed run(s)")
 
@@ -236,7 +241,7 @@ async def run_ensemble(transcripts: str, question: str, contexts: list[str]) -> 
         print("ENSEMBLE ANSWER (fallback — single run):")
         print("=" * 60)
         print(final_answer)
-        _print_cost_summary(duration, len(successful))
+        _print_cost_summary(duration, len(successful), num_runs)
         return
 
     duration = time.time() - start
@@ -246,10 +251,10 @@ async def run_ensemble(transcripts: str, question: str, contexts: list[str]) -> 
     print("=" * 60)
     print(final.answer)
 
-    _print_cost_summary(duration, len(successful))
+    _print_cost_summary(duration, len(successful), num_runs)
 
 
-def _print_cost_summary(duration: float, num_successful: int) -> None:
+def _print_cost_summary(duration: float, num_successful: int, num_runs: int) -> None:
     lm = dspy.settings.lm
     total_cost = sum(entry.get("cost") or 0 for entry in lm.history)
     total_tokens = sum(
@@ -257,7 +262,7 @@ def _print_cost_summary(duration: float, num_successful: int) -> None:
     )
     print(
         f"\n--- Cost: ${total_cost:.6f} | Tokens: {total_tokens:,} "
-        f"| LLM calls: {len(lm.history)} | Runs: {num_successful}/{NUM_ENSEMBLE_RUNS} "
+        f"| LLM calls: {len(lm.history)} | Runs: {num_successful}/{num_runs} "
         f"| Duration: {duration:.1f}s ---"
     )
 
@@ -289,8 +294,9 @@ def main():
     print(data_summary)
     print()
 
-    print("Generating analytical lenses...")
-    lenses = generate_lenses(question, data_summary, NUM_ENSEMBLE_RUNS)
+    print(f"Generating analytical lenses (up to {MAX_LENSES})...")
+    lenses = generate_lenses(question=question, data_summary=data_summary, max_lenses=MAX_LENSES)
+    print(f"  Planner chose {len(lenses)} lenses:")
     for i, lens in enumerate(lenses, 1):
         print(f"  Lens {i}: {lens}")
     print("=" * 60)
@@ -298,7 +304,7 @@ def main():
 
     contexts = [assemble_context(data_summary, lens) for lens in lenses]
 
-    asyncio.run(run_ensemble(transcripts, question, contexts))
+    asyncio.run(run_ensemble(transcripts, question, contexts, num_runs=len(lenses)))
 
 
 if __name__ == "__main__":
