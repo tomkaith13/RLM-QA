@@ -53,6 +53,38 @@ Transcripts are stored as JSON arrays in `data/`. Each file contains an array of
 
 At load time, all JSON files in `data/` are merged and reformatted into a flat text block for RLM to process via code.
 
+## Ensemble Mode
+
+For more robust answers, `ensemble.py` runs multiple RLM instances in parallel with different analytical perspectives:
+
+```bash
+uv run ensemble.py "Give me an age cohort with a brand breakdown in a table format."
+```
+
+### How It Works
+
+1. **Planning phase**: Computes a structural summary of the dataset (attribute distributions, age statistics) and generates analytical lenses via a single LLM call. The planner adaptively chooses how many lenses to create based on question complexity — simple counting questions get 1-3 lenses, cross-tabulations get 3-5, and open-ended qualitative questions get 5-10. Each lens steers a different RLM run toward a different methodology — e.g., one might focus on demographic segmentation while another examines purchase behavior.
+
+2. **Parallel execution**: One RLM instance per lens runs concurrently via `asyncio.gather`, each with its own sandboxed interpreter and assigned lens. All runs process the full dataset independently.
+
+3. **Aggregation**: A `ChainOfThought` call synthesizes all successful run answers into a unified consensus answer, reporting median counts and flagging where runs disagree.
+
+### Configuration
+
+```python
+MAX_LENSES = 10          # ceiling for adaptive lens count (planner decides actual count)
+MAX_ITERATIONS = 25      # per-run iteration limit
+MAX_LLM_CALLS = 200      # per-run LLM call budget
+```
+
+### Typical Performance
+
+| Metric | Single Run (`main.py`) | Ensemble (`ensemble.py`) |
+|--------|----------------------:|-------------------------:|
+| Wall clock | 1-5 min | 3-50 min (parallel, depends on complexity) |
+| Cost | $0.01-0.05 | $0.08-5.00 (scales with lens count) |
+| Robustness | Single perspective | Cross-validated consensus |
+
 ## Models
 
 | Role | Model | Purpose |
