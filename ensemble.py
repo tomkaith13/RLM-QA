@@ -31,7 +31,8 @@ class AnalyzeTranscriptsWithLens(dspy.Signature):
     When counting or classifying, report exact counts with supporting evidence.
     You have been assigned a specific analytical lens. Use it to frame your
     analysis and prioritize which patterns to surface first, but do not let it
-    blind you to other significant findings."""
+    blind you to other significant findings. If tools are available, 
+    use them strategically in your analysis."""
 
     transcripts: str = dspy.InputField(desc="Full text of all interview transcripts")
     question: str = dspy.InputField(desc="Research question to answer about the transcripts")
