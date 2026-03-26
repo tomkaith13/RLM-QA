@@ -72,7 +72,7 @@ uv run ensemble.py "Give me an age cohort with a brand breakdown in a table form
 ### Configuration
 
 ```python
-MAX_LENSES = 10          # ceiling for adaptive lens count (planner decides actual count)
+MAX_LENSES = 5           # ceiling for adaptive lens count (planner decides actual count)
 MAX_ITERATIONS = 25      # per-run iteration limit
 MAX_LLM_CALLS = 200      # per-run LLM call budget
 ```
@@ -84,6 +84,36 @@ MAX_LLM_CALLS = 200      # per-run LLM call budget
 | Wall clock | 1-5 min | 3-50 min (parallel, depends on complexity) |
 | Cost | $0.01-0.05 | $0.08-5.00 (scales with lens count) |
 | Robustness | Single perspective | Cross-validated consensus |
+
+## Semantic Search (Optional)
+
+A ColBERT-based semantic search tool can be built and used alongside the RLM to speed up targeted lookups (e.g., "find transcripts mentioning Nike") without iterating the full dataset.
+
+### Building the Index
+
+```bash
+uv run build_index.py
+```
+
+This encodes all transcripts using [answerai-colbert-small-v1](https://huggingface.co/answerdotai/answerai-colbert-small-v1) (33M params, 96-dim) and creates a [PLAID index](https://github.com/lightonai/fast-plaid) at `index/`. Takes ~9 seconds (model cached after first download of ~130MB).
+
+The index is hash-gated — re-running skips the build if the transcript data hasn't changed. Use `--force` to rebuild unconditionally:
+
+```bash
+uv run build_index.py --force
+```
+
+### Using the Search Tool
+
+Pass `--use-search-tool` to the ensemble runner:
+
+```bash
+uv run ensemble.py --use-search-tool "What do people say about Nike?"
+```
+
+This exposes `search_transcripts(query, top_k=10)` as a callable function inside the RLM's code interpreter. The LLM can use it for fast semantic retrieval while still having access to the full transcript data for exhaustive analysis.
+
+Without the flag, the ensemble runs without the search tool (the default behavior).
 
 ## Models
 
