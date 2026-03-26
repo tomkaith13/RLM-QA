@@ -16,7 +16,7 @@ from main import load_transcripts
 
 load_dotenv()
 
-MAX_LENSES = 10
+MAX_LENSES = 5
 MAX_ITERATIONS = 25
 MAX_LLM_CALLS = 200
 
@@ -46,9 +46,9 @@ class GenerateLenses(dspy.Signature):
     unit of analysis, or the interpretive frame. Lenses must be specific
     enough to steer an analyst's attention, not generic advice.
     Choose the right NUMBER of lenses for the question's complexity:
-    - Simple factual/counting questions need only 1-3 lenses.
-    - Moderately complex questions (filtering, cross-tabulation) need 3-5 lenses.
-    - Open-ended interpretive/qualitative questions benefit from 5-10 lenses.
+    - Simple factual/counting questions need only 1-2 lenses.
+    - Moderately complex questions (filtering, cross-tabulation) need 2-3 lenses.
+    - Open-ended interpretive/qualitative questions benefit from 3-5 lenses.
     Do not generate more lenses than the question warrants."""
 
     question: str = dspy.InputField(desc="The research question all runs will answer")
