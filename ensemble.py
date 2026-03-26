@@ -125,6 +125,22 @@ def compute_data_summary(calls: list[dict[str, Any]]) -> str:
             top_str += f", ... ({len(counter)} total unique)"
         lines.append(f"  {label}: {top_str}")
 
+    # Build a transcript format example from the first call
+    if calls:
+        sample = calls[0]
+        sample_id = sample["id"]
+        sample_attrs = {a["label"]: a["value"] for a in sample.get("attributes", [])}
+        sample_attrs_str = ", ".join(f"{k}: {v}" for k, v in list(sample_attrs.items())[:3])
+        lines.append("")
+        lines.append("Transcript format (each transcript follows this structure):")
+        lines.append(f"  === Call <call_id> | <comma-separated attributes> ===")
+        lines.append(f"    [BOT] <interviewer message>")
+        lines.append(f"    [USER] <participant response>")
+        lines.append(f"    ... (conversation continues)")
+        lines.append(f"  Example header: === Call {sample_id} | {sample_attrs_str}, ... ===")
+        lines.append(f"  Attribute fields appear in the header, not as separate lines.")
+        lines.append(f"  To extract an attribute (e.g., Gender+), parse the header pipe-delimited section.")
+
     return "\n".join(lines)
 
 
