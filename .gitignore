@@ -11,3 +11,6 @@ wheels/
 
 # Environment variables
 .env
+
+# Search index (built from data, not committed)
+index/

@@ -11,6 +11,7 @@ import dspy
 from dotenv import load_dotenv
 from dspy.primitives import PythonInterpreter
 
+from build_index import search_transcripts
 from main import load_transcripts
 
 load_dotenv()
@@ -163,19 +164,21 @@ def assemble_context(data_summary: str, lens: str) -> str:
 # ── Ensemble execution ───────────────────────────────────────────────────────
 
 
-async def run_single(run_id: int, transcripts: str, question: str, context: str) -> dict | None:
+async def run_single(run_id: int, transcripts: str, question: str, context: str, *, use_search: bool = False) -> dict | None:
     """Run a single RLM instance with its own pre-warmed interpreter."""
     print(f"[Run {run_id}] Starting...")
     start = time.time()
     interpreter = PythonInterpreter()
     interpreter.start()
     try:
+        tools = [search_transcripts] if use_search else []
         rlm = dspy.RLM(
             AnalyzeTranscriptsWithLens,
             max_iterations=MAX_ITERATIONS,
             max_llm_calls=MAX_LLM_CALLS,
             verbose=True,
             interpreter=interpreter,
+            tools=tools,
         )
         result = await rlm.acall(transcripts=transcripts, question=question, context=context)
         duration = time.time() - start
@@ -193,15 +196,15 @@ async def run_single(run_id: int, transcripts: str, question: str, context: str)
         interpreter.shutdown()
 
 
-async def run_ensemble(transcripts: str, question: str, contexts: list[str], num_runs: int) -> None:
+async def run_ensemble(transcripts: str, question: str, contexts: list[str], num_runs: int, *, use_search: bool = False) -> None:
     """Run N parallel RLM instances with per-run contexts and aggregate results."""
-    print(f"Launching {num_runs} parallel RLM runs...")
+    print(f"Launching {num_runs} parallel RLM runs (search={'on' if use_search else 'off'})...")
     print("=" * 60)
 
     start = time.time()
 
     tasks = [
-        run_single(i + 1, transcripts, question, contexts[i])
+        run_single(i + 1, transcripts, question, contexts[i], use_search=use_search)
         for i in range(num_runs)
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -272,10 +275,15 @@ def _print_cost_summary(duration: float, num_successful: int, num_runs: int) -> 
 
 def main():
     if len(sys.argv) < 2:
-        print('Usage: uv run ensemble.py "<your question about the transcripts>"')
+        print('Usage: uv run ensemble.py [--use-search-tool] "<your question about the transcripts>"')
         sys.exit(1)
 
-    question = sys.argv[1]
+    use_search = "--use-search-tool" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--use-search-tool"]
+    if not args:
+        print('Usage: uv run ensemble.py [--use-search-tool] "<your question about the transcripts>"')
+        sys.exit(1)
+    question = args[0]
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -304,7 +312,7 @@ def main():
 
     contexts = [assemble_context(data_summary, lens) for lens in lenses]
 
-    asyncio.run(run_ensemble(transcripts, question, contexts, num_runs=len(lenses)))
+    asyncio.run(run_ensemble(transcripts, question, contexts, num_runs=len(lenses), use_search=use_search))
 
 
 if __name__ == "__main__":

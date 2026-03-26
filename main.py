@@ -25,6 +25,17 @@ class AnalyzeTranscripts(dspy.Signature):
     answer: str = dspy.OutputField(desc="Detailed answer with exact counts, supporting evidence, and methodology notes")
 
 
+def format_call(call: dict) -> str:
+    """Format a single call dict into the canonical text representation."""
+    call_id = call["id"]
+    attrs = {a["label"]: a["value"] for a in call.get("attributes", [])}
+    attrs_str = ", ".join(f"{k}: {v}" for k, v in attrs.items())
+    lines = [f"\n=== Call {call_id} | {attrs_str} ==="]
+    for msg in call["messages"]:
+        lines.append(f"  [{msg['role'].upper()}] {msg['message']}")
+    return "\n".join(lines)
+
+
 def load_transcripts() -> tuple[str, list[dict]]:
     """Load all JSON transcript files from the data directory.
 
@@ -42,17 +53,7 @@ def load_transcripts() -> tuple[str, list[dict]]:
         with open(json_file) as f:
             calls.extend(json.load(f))
 
-    lines = []
-    for call in calls:
-        call_id = call["id"]
-        attrs = {a["label"]: a["value"] for a in call.get("attributes", [])}
-        attrs_str = ", ".join(f"{k}: {v}" for k, v in attrs.items())
-        lines.append(f"\n=== Call {call_id} | {attrs_str} ===")
-        for msg in call["messages"]:
-            role = msg["role"].upper()
-            lines.append(f"  [{role}] {msg['message']}")
-
-    return "\n".join(lines), calls
+    return "\n".join(format_call(c) for c in calls), calls
 
 
 def main():
